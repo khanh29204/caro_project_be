@@ -20,19 +20,61 @@ export function makeRoom(id?: string): Room {
     winner: null,
     members: new Map<string, Presence>(),
     offlineTimers: new Map(),
+    firstMoverId: null,
+    lastWinnerId: null,
   };
+}
+
+export function symbolOf(room: Room, userId: string): SymbolXO | null {
+  const p = room.players.find((p) => p.id === userId);
+  return p ? p.symbol : null;
 }
 
 export function pairKey(id1: string, id2: string): PairKey {
   return [id1, id2].sort().join("|");
 }
 
-export function incHistory(winnerId: string | null, a: string, b: string) {
-  const key = pairKey(a, b);
-  const cur = histories.get(key) || { a, b, winsA: 0, winsB: 0, draws: 0 };
-  if (!winnerId) cur.draws++;
-  else if (winnerId === a) cur.winsA++;
-  else if (winnerId === b) cur.winsB++;
+export function incHistory(winnerId: string | null, id1: string, id2: string) {
+  // Chuẩn hoá cặp người chơi theo thứ tự cố định
+  const [A, B] = [id1, id2].sort();
+  if (A === B) return; // không ghi lịch sử tự đấu với chính mình
+
+  const key = `${A}|${B}`;
+
+  // Lấy hoặc tạo bản ghi canon
+  const cur = histories.get(key) || {
+    a: A,
+    b: B,
+    winsA: 0,
+    winsB: 0,
+    draws: 0,
+  };
+
+  // (Migration an toàn) Nếu a/b trong bản ghi cũ không khớp A/B, hoán đổi về đúng phía
+  if (cur.a !== A || cur.b !== B) {
+    // hoán đổi nếu cần
+    if (cur.a === B && cur.b === A) {
+      const tmp = cur.winsA;
+      cur.winsA = cur.winsB;
+      cur.winsB = tmp;
+      cur.a = A;
+      cur.b = B;
+    } else {
+      // trường hợp lạ: ép về canon
+      cur.a = A;
+      cur.b = B;
+    }
+  }
+
+  // Cộng theo phía canon
+  if (winnerId == null) {
+    cur.draws++;
+  } else if (winnerId === cur.a) {
+    cur.winsA++;
+  } else if (winnerId === cur.b) {
+    cur.winsB++;
+  }
+
   histories.set(key, cur);
 }
 

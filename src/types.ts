@@ -18,6 +18,8 @@ export type Room = {
   // 🔥 CHUẨN HOÁ: presence map
   members: Map<string, Presence>; // userId -> { user, sockets }
   offlineTimers: Map<string, NodeJS.Timeout>;
+  firstMoverId?: string | null; // ai đi trước ván hiện tại/tiếp theo
+  lastWinnerId?: string | null;
 };
 
 export type PairKey = string; // "userA|userB" (sorted)
