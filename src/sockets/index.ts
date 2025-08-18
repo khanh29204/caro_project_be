@@ -14,7 +14,7 @@ import { ALLOWED_ORIGINS } from "../config";
 export function setupSocket(httpServer: any) {
   const io = new Server(httpServer, {
     path: "/api/socket.io",
-    cors: { origin: ALLOWED_ORIGINS, credentials: true },
+    cors: { origin: true, credentials: true }
   });
 
   io.on("connection", (socket: Socket) => {

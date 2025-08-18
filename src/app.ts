@@ -8,11 +8,7 @@ import historyRoute from "./routes/history.route";
 export const app = express();
 
 app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin) return cb(null, true);
-    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-    return cb(new Error("Not allowed by CORS"));
-  },
+  origin: (origin, cb) => cb(null, true),
   credentials: true,
 }));
 app.use(express.json());
