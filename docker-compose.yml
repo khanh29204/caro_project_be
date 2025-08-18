@@ -1,0 +1,13 @@
+version: '3.9'
+
+services:
+  caro_project_be:
+    image: ghcr.io/khanh29204/caro_project_be:latest
+    container_name: caro_project_be
+    ports:
+      - '3005:3005'
+    restart: always
+    env_file:
+      - .env
+    networks:
+      - default
