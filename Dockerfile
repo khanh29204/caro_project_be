@@ -1,31 +1,28 @@
-# Stage 1: Cài tất cả dependencies (dev + prod) để build
-FROM node:20-bullseye-slim AS deps
+# Stage 1: Install dependencies
+FROM oven/bun:1-alpine AS builder
 WORKDIR /app
-COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
 
-# Stage 2: Build TypeScript
-FROM node:20-bullseye-slim AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY package.json bun.lock* ./
+# Cài đặt toàn bộ bao gồm cả devDependencies để phục vụ build (nếu có)
+RUN bun install --frozen-lockfile
+
+# Copy toàn bộ source và build (nếu bạn dùng TypeScript cần transpile hoặc gom file)
 COPY . .
-RUN yarn build
 
-# Stage 3: Chỉ cài production dependencies
-FROM node:20-bullseye-slim AS prod-deps
-WORKDIR /app
-COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile --production --no-progress --prefer-offline
-
-# Stage 4: Runner
-FROM node:20-alpine AS runner
+# Stage 2: Production runtime
+FROM oven/bun:1-alpine AS runner
 WORKDIR /app
 
-# Copy production node_modules
-COPY --from=prod-deps /app/node_modules ./node_modules
+# Chỉ copy những thứ cần thiết từ stage builder
+# Nếu project của bạn chạy trực tiếp file .ts bằng bun, copy source và node_modules
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/package.json ./package.json
 
-# Copy build output + package.json
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package.json ./
+# Thiết lập môi trường production
+ENV NODE_ENV=production
+USER bun
+
 EXPOSE 3005
-CMD ["node", "dist/server.js"]
+
+CMD ["bun", "src/server.ts"]

@@ -73,7 +73,7 @@ export function setupSocket(httpServer: any) {
     });
 
     // -------- make-move --------
-    socket.on("make-move", (payload: MovePayload) => {
+    socket.on("make-move", async (payload: MovePayload) => {
       const user: User | null = socket.data.user;
       const roomId: string | null = socket.data.roomId;
       if (!user || !roomId) return;
@@ -100,13 +100,15 @@ export function setupSocket(httpServer: any) {
         room.lastWinnerId = player.id;
         const opp = room.players.find((p) => p.id !== player.id);
         if (opp) {
-          incHistory(player.id, player.id, opp.id);
+          // Lưu lịch sử async
+          await incHistory(player.id, player.id, opp.id).catch(err => console.error("Save DB failed", err));
         }
       } else if (isBoardFull(room.board)) {
         room.winner = "draw";
         room.lastWinnerId = null;
         if (room.players.length === 2) {
-          incHistory(null, room.players[0].id, room.players[1].id);
+           // Lưu lịch sử async
+           await incHistory(null, room.players[0].id, room.players[1].id).catch(err => console.error("Save DB failed", err));
         }
       } else {
         room.nextTurn = room.nextTurn === "X" ? "O" : "X";
@@ -166,58 +168,44 @@ export function setupSocket(httpServer: any) {
 
       const presence = room.members.get(user.id);
       if (!presence) {
-        // Không có presence -> có thể đã bị dọn ở đâu đó, đừng set timer nữa
         io.to(roomId).emit("room-state", room);
         return;
       }
 
-      // Gỡ socket này khỏi danh sách của user
       presence.sockets.delete(socket.id);
 
-      // Nếu user vẫn còn socket khác -> vẫn online, chỉ cần broadcast là xong
       if (presence.sockets.size > 0) {
         io.to(roomId).emit("room-state", room);
         return;
       }
 
-      // Tới đây: user thật sự offline (không còn socket nào)
-      // Tránh double timer: nếu đã có timer đang chờ thì thôi
       if (room.offlineTimers.has(user.id)) {
-        // đã có timer giữ ghế -> chỉ broadcast một lần cho FE biết 'offline'
         io.to(roomId).emit("room-state", room);
         return;
       }
 
-      // Đặt timer giữ ghế 30s
       const timer = setTimeout(() => {
-        // ❗ Re-check vì trong 30s user có thể đã quay lại
         const r = rooms.get(roomId);
-        if (!r) return; // phòng đã xoá ở nơi khác
+        if (!r) return;
 
         const prez = r.members.get(user.id);
         if (prez && prez.sockets.size > 0) {
-          // user đã quay lại -> không dọn nữa
           r.offlineTimers.delete(user.id);
           return;
         }
 
-        // Dọn user khỏi 'members'
         r.members.delete(user.id);
-
-        // (Optional) nếu muốn nhả ghế player sau khi rời hẳn:
         r.players = r.players.filter((p) => p.id !== user.id);
 
-        // Nếu là host -> chọn host mới
         if (r.hostId === user.id) {
           r.hostId = pickNewHost(r);
 
-          // Không còn ai -> xoá phòng
           if (!r.hostId) {
             rooms.delete(roomId);
             io.in(roomId).socketsLeave(roomId);
             io.emit("room-deleted", roomId);
             r.offlineTimers.delete(user.id);
-            return; // Đừng emit room-state sau khi xoá
+            return; 
           }
         }
 
@@ -225,13 +213,10 @@ export function setupSocket(httpServer: any) {
         r.offlineTimers.delete(user.id);
       }, OFFLINE_GRACE_MS);
 
-      // Đừng giữ process sống chỉ vì timer này
       // @ts-ignore
       if (typeof (timer as any).unref === "function") (timer as any).unref();
 
       room.offlineTimers.set(user.id, timer);
-
-      // Emit 1 lần để FE biết user vừa rớt (offline state)
       io.to(roomId).emit("room-state", room);
     });
   });

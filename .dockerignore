@@ -1,10 +1,7 @@
-database/
 node_modules
-dist
-coverage
+.git
 .env
-*.log
-*.tsbuildinfo
-*.local
-.vscode
-.DS_Store
+dist
+README.md
+Dockerfile
+data

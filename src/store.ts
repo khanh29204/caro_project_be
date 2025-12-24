@@ -1,9 +1,12 @@
 import { nanoid } from "nanoid";
 import { BOARD_SIZE } from "./config";
-import { Board, Room, SymbolXO, PairKey, Versus, Presence } from "./types";
+import { Board, Room, SymbolXO, Presence } from "./types";
+import { db } from "./db";
+import { histories } from "./db/schema";
+import { eq, sql } from "drizzle-orm";
 
 export const rooms = new Map<string, Room>();
-export const histories = new Map<PairKey, Versus>();
+// export const histories = new Map<PairKey, Versus>(); // -> Đã bỏ, dùng DB
 
 export function newBoard(): Board {
   return Array.from({ length: BOARD_SIZE }, () =>
@@ -30,64 +33,59 @@ export function symbolOf(room: Room, userId: string): SymbolXO | null {
   return p ? p.symbol : null;
 }
 
-export function pairKey(id1: string, id2: string): PairKey {
+export function pairKey(id1: string, id2: string): string {
   return [id1, id2].sort().join("|");
 }
 
-export function incHistory(winnerId: string | null, id1: string, id2: string) {
-  // Chuẩn hoá cặp người chơi theo thứ tự cố định
+// Chuyển sang async để gọi DB
+export async function incHistory(winnerId: string | null, id1: string, id2: string) {
   const [A, B] = [id1, id2].sort();
   if (A === B) return; // không ghi lịch sử tự đấu với chính mình
 
-  const key = `${A}|${B}`;
+  const pKey = `${A}|${B}`;
 
-  // Lấy hoặc tạo bản ghi canon
-  const cur = histories.get(key) || {
-    a: A,
-    b: B,
-    winsA: 0,
-    winsB: 0,
-    draws: 0,
-  };
-
-  // (Migration an toàn) Nếu a/b trong bản ghi cũ không khớp A/B, hoán đổi về đúng phía
-  if (cur.a !== A || cur.b !== B) {
-    // hoán đổi nếu cần
-    if (cur.a === B && cur.b === A) {
-      const tmp = cur.winsA;
-      cur.winsA = cur.winsB;
-      cur.winsB = tmp;
-      cur.a = A;
-      cur.b = B;
-    } else {
-      // trường hợp lạ: ép về canon
-      cur.a = A;
-      cur.b = B;
-    }
+  // Chuẩn bị data update
+  let updateData: any = {};
+  if (winnerId === null) {
+    updateData = { draws: sql`draws + 1` };
+  } else if (winnerId === A) {
+    updateData = { winsA: sql`wins_a + 1` };
+  } else {
+    updateData = { winsB: sql`wins_b + 1` };
   }
 
-  // Cộng theo phía canon
-  if (winnerId == null) {
-    cur.draws++;
-  } else if (winnerId === cur.a) {
-    cur.winsA++;
-  } else if (winnerId === cur.b) {
-    cur.winsB++;
-  }
-
-  histories.set(key, cur);
+  // Upsert (Insert nếu chưa có, Update nếu có rồi)
+  await db.insert(histories)
+    .values({
+      pairKey: pKey,
+      playerA: A,
+      playerB: B,
+      winsA: winnerId === A ? 1 : 0,
+      winsB: winnerId === B ? 1 : 0,
+      draws: winnerId === null ? 1 : 0,
+    })
+    .onConflictDoUpdate({
+      target: histories.pairKey,
+      set: updateData,
+    });
 }
 
-export function perspectiveHistory(me: string, other: string) {
-  const key = pairKey(me, other);
-  const h = histories.get(key) || {
-    a: me,
-    b: other,
+// Chuyển sang async
+export async function perspectiveHistory(me: string, other: string) {
+  const pKey = pairKey(me, other);
+  
+  const result = await db.select().from(histories).where(eq(histories.pairKey, pKey)).get();
+  
+  // Mặc định nếu chưa có record
+  const h = result || {
+    playerA: me < other ? me : other,
+    playerB: me < other ? other : me,
     winsA: 0,
     winsB: 0,
     draws: 0,
   };
-  const meIsA = h.a === me;
+
+  const meIsA = h.playerA === me;
   return {
     me,
     opponent: other,

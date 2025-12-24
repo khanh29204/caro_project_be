@@ -4,13 +4,14 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "start": "node dist/server.js",
-    "build": "tsup src/server.ts --format esm,cjs --target node18 --dts --clean"
+    "dev": "bun --watch src/server.ts",
+    "start": "bun src/server.ts",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "dotenv": "^17.2.1",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.30.10",
     "express": "^4.19.2",
     "nanoid": "^5.0.7",
     "socket.io": "^4.7.5"
@@ -18,8 +19,7 @@
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
-    "tsup": "^8.1.0",
-    "tsx": "^4.16.2",
-    "typescript": "^5.4.5"
+    "bun-types": "latest",
+    "drizzle-kit": "^0.20.17"
   }
 }

@@ -5,8 +5,10 @@ services:
     image: ghcr.io/khanh29204/caro_project_be:latest
     container_name: caro_project_be
     ports:
-      - '3005:3005'
+      - '3001:3001'
     restart: always
+    volumes:
+      - ./data:/app/data
     env_file:
       - .env
     networks:
