@@ -9,6 +9,8 @@ try {
 } catch (e) {}
 
 const sqlite = new Database("data/caro.db");
+sqlite.exec("PRAGMA journal_mode = WAL;");
+sqlite.exec("PRAGMA synchronous = NORMAL;");
 export const db = drizzle(sqlite, { schema });
 export function initDB() {
   sqlite.run(`
@@ -22,5 +24,6 @@ export function initDB() {
             updated_at INTEGER
         );
     `);
+  sqlite.run("PRAGMA optimize;");
   console.log("Database initialized");
 }

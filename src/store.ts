@@ -38,7 +38,11 @@ export function pairKey(id1: string, id2: string): string {
 }
 
 // Chuyển sang async để gọi DB
-export async function incHistory(winnerId: string | null, id1: string, id2: string) {
+export async function incHistory(
+  winnerId: string | null,
+  id1: string,
+  id2: string
+) {
   const [A, B] = [id1, id2].sort();
   if (A === B) return; // không ghi lịch sử tự đấu với chính mình
 
@@ -55,7 +59,8 @@ export async function incHistory(winnerId: string | null, id1: string, id2: stri
   }
 
   // Upsert (Insert nếu chưa có, Update nếu có rồi)
-  await db.insert(histories)
+  await db
+    .insert(histories)
     .values({
       pairKey: pKey,
       playerA: A,
@@ -70,14 +75,15 @@ export async function incHistory(winnerId: string | null, id1: string, id2: stri
     });
 }
 
-// Chuyển sang async
-export async function perspectiveHistory(me: string, other: string) {
+const historyQuery = db
+  .select()
+  .from(histories)
+  .where(eq(histories.pairKey, sql.placeholder("pKey")))
+  .prepare();
+
+export function perspectiveHistory(me: string, other: string) {
   const pKey = pairKey(me, other);
-  
-  const result = await db.select().from(histories).where(eq(histories.pairKey, pKey)).get();
-  
-  // Mặc định nếu chưa có record
-  const h = result || {
+  const h = historyQuery.get({ pKey }) || {
     playerA: me < other ? me : other,
     playerB: me < other ? other : me,
     winsA: 0,
