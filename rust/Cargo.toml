@@ -1,0 +1,21 @@
+[package]
+name = "caro-server"
+version = "1.0.0"
+edition = "2021"
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+socketioxide = { version = "0.15", features = ["state"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors"] }
+http = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+nanoid = "0.4"
+dotenvy = "0.15"
+parking_lot = "0.12"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+lazy_static = "1.5"
