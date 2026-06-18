@@ -44,6 +44,7 @@ pub fn setup_socket(io: &SocketIo, app_state: Arc<AppState>) {
         // -------- join-room --------
         {
             let state = state.clone();
+            let io_join = io_ref.clone();
             socket.on("join-room", move |socket: SocketRef, Data::<serde_json::Value>(data)| {
                 let payload: JoinPayload = match serde_json::from_value(data) {
                     Ok(p) => p,
@@ -108,13 +109,15 @@ pub fn setup_socket(io: &SocketIo, app_state: Arc<AppState>) {
                 let room_json = room.to_json();
                 drop(rooms);
 
-                socket.within(room_id).emit("room-state", &room_json).ok();
+                // io.to() broadcasts to ALL in room (including sender)
+                io_join.to(room_id).emit("room-state", &room_json).ok();
             });
         }
 
         // -------- make-move --------
         {
             let state = state.clone();
+            let io_move = io_ref.clone();
             socket.on("make-move", move |socket: SocketRef, Data::<serde_json::Value>(data)| {
                 let payload: MovePayload = match serde_json::from_value(data) {
                     Ok(p) => p,
@@ -192,13 +195,15 @@ pub fn setup_socket(io: &SocketIo, app_state: Arc<AppState>) {
                 let room_json = room.to_json();
                 drop(rooms);
 
-                socket.within(room_id).emit("room-state", &room_json).ok();
+                // io.to() broadcasts to ALL in room (including sender)
+                io_move.to(room_id).emit("room-state", &room_json).ok();
             });
         }
 
         // -------- restart --------
         {
             let state = state.clone();
+            let io_restart = io_ref.clone();
             socket.on("restart", move |socket: SocketRef| {
                 let (user, room_id) = match get_socket_data(&socket.id.to_string()) {
                     Some(d) => d,
@@ -238,7 +243,8 @@ pub fn setup_socket(io: &SocketIo, app_state: Arc<AppState>) {
                 let room_json = room.to_json();
                 drop(rooms);
 
-                socket.within(room_id).emit("room-state", &room_json).ok();
+                // io.to() broadcasts to ALL in room (including sender)
+                io_restart.to(room_id).emit("room-state", &room_json).ok();
             });
         }
 

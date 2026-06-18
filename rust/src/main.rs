@@ -32,6 +32,7 @@ async fn main() {
     // Setup Socket.IO with path /api/socket.io (matching JS backend)
     let (layer, io) = SocketIo::builder()
         .with_state(app_state.clone())
+        .req_path("/api/socket.io")
         .build_layer();
 
     // Register socket handlers
