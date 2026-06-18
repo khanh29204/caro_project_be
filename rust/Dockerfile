@@ -5,14 +5,13 @@ WORKDIR /app
 RUN apk add --no-cache musl-dev
 
 COPY Cargo.toml Cargo.lock* ./
-# Create dummy main to cache dependencies
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo build --release
 RUN rm -rf src
 
-# Copy real source and build
+# Copy real source và force rebuild
 COPY src ./src
-RUN cargo build --release
+RUN touch src/main.rs && cargo build --release
 
 # Production stage
 FROM alpine:3.19 AS runner
