@@ -1,7 +1,5 @@
-node_modules
-.git
-.env
-dist
-README.md
-Dockerfile
+target
 data
+.env
+.git
+.github

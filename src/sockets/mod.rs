@@ -79,27 +79,41 @@ pub fn setup_socket(io: &SocketIo, app_state: Arc<AppState>) {
 
                 // Push into players if slot available
                 let already = room.players.iter().any(|p| p.id == user.id);
-                if !already && room.players.len() < 2 {
-                    let symbol = if room.players.is_empty() {
-                        SymbolXO::X
+                if !already {
+                    if let Some(host_id) = &room.host_id {
+                        if &user.id == host_id {
+                            // Creator always gets X
+                            if room.players.is_empty() {
+                                room.players.push(Player { id: user.id.clone(), name: user.name.clone(), symbol: SymbolXO::X });
+                            } else {
+                                // Insert at the front so they are the first player
+                                room.players.insert(0, Player { id: user.id.clone(), name: user.name.clone(), symbol: SymbolXO::X });
+                            }
+                        } else {
+                            // Non-host joins
+                            if !room.players.iter().any(|p| p.symbol == SymbolXO::O) {
+                                room.players.push(Player { id: user.id.clone(), name: user.name.clone(), symbol: SymbolXO::O });
+                            }
+                        }
                     } else {
-                        SymbolXO::O
-                    };
-                    room.players.push(Player {
-                        id: user.id.clone(),
-                        name: user.name.clone(),
-                        symbol,
-                    });
-
-                    // Set firstMoverId for X player
-                    if room.first_mover_id.is_none() && symbol == SymbolXO::X {
-                        room.first_mover_id = Some(user.id.clone());
+                        // Old logic if host_id is somehow missing
+                        if room.players.len() < 2 {
+                            let symbol = if room.players.is_empty() { SymbolXO::X } else { SymbolXO::O };
+                            room.players.push(Player { id: user.id.clone(), name: user.name.clone(), symbol });
+                        }
                     }
                 }
 
-                // Set host
+                // Set host if not set
                 if room.host_id.is_none() {
                     room.host_id = Some(user.id.clone());
+                }
+
+                // Set firstMoverId for X player
+                if room.first_mover_id.is_none() {
+                    if let Some(px) = room.players.iter().find(|p| p.symbol == SymbolXO::X) {
+                        room.first_mover_id = Some(px.id.clone());
+                    }
                 }
 
                 // Join socket room

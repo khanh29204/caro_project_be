@@ -7,11 +7,23 @@ use socketioxide::SocketIo;
 use std::sync::Arc;
 use crate::store::{self, AppState};
 
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+struct CreateRoomBody {
+    #[serde(rename = "userId")]
+    user_id: Option<String>,
+}
+
 /// POST /api/rooms -> { roomId }  (mirrors rooms.route.ts)
 async fn create_room(
     State((state, _io)): State<(Arc<AppState>, SocketIo)>,
+    Json(body): Json<CreateRoomBody>,
 ) -> Json<serde_json::Value> {
-    let room = store::make_room(None);
+    let mut room = store::make_room(None);
+    if let Some(uid) = body.user_id {
+        room.host_id = Some(uid);
+    }
     let room_id = room.id.clone();
     state.rooms.write().insert(room_id.clone(), room);
     Json(serde_json::json!({ "roomId": room_id }))

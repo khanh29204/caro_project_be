@@ -1,28 +1,26 @@
-# Stage 1: Install dependencies
-FROM oven/bun:1-alpine AS builder
+# Build stage
+FROM rust:1.82-alpine AS builder
 WORKDIR /app
 
-COPY package.json bun.lock* ./
-# Cài đặt toàn bộ bao gồm cả devDependencies để phục vụ build (nếu có)
-RUN bun install --frozen-lockfile
+RUN apk add --no-cache musl-dev
 
-# Copy toàn bộ source và build (nếu bạn dùng TypeScript cần transpile hoặc gom file)
-COPY . .
+COPY Cargo.toml Cargo.lock* ./
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+RUN cargo build --release
+RUN rm -rf src
 
-# Stage 2: Production runtime
-FROM oven/bun:1-alpine AS runner
+# Copy real source và force rebuild
+COPY src ./src
+RUN touch src/main.rs && cargo build --release
+
+# Production stage
+FROM alpine:3.19 AS runner
 WORKDIR /app
 
-# Chỉ copy những thứ cần thiết từ stage builder
-# Nếu project của bạn chạy trực tiếp file .ts bằng bun, copy source và node_modules
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/target/release/caro-server ./caro-server
 
-# Thiết lập môi trường production
-ENV NODE_ENV=production
-USER bun
+ENV RUST_LOG=info
 
-EXPOSE 3005
+EXPOSE 3001
 
-CMD ["bun", "src/server.ts"]
+CMD ["./caro-server"]

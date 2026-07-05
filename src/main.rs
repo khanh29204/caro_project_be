@@ -54,5 +54,22 @@ async fn main() {
     tracing::info!("Server listening on http://{addr} with Rust/Axum runtime");
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    
+    // Graceful shutdown
+    let db_for_shutdown = app_state.db.clone();
+    
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async move {
+            tokio::signal::ctrl_c()
+                .await
+                .expect("failed to install Ctrl+C handler");
+            tracing::info!("Received Ctrl+C, shutting down gracefully...");
+        })
+        .await
+        .unwrap();
+
+    tracing::info!("Server stopped. Checkpointing database...");
+    db_for_shutdown.checkpoint();
+    db_for_shutdown.close();
+    tracing::info!("Shutdown complete.");
 }
